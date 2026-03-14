@@ -260,33 +260,30 @@
             ws.onclose = () => { sysStatus.innerText = "Cơ sở dữ liệu (Cloud)"; setTimeout(() => initWebSocket(ip), 5000); };
         }
 
-        // Directory Management (Stable Row Rendering)
-        db.collection("directory").onSnapshot(snaps => {
-            snaps.docChanges().forEach(change => {
-                const doc = change.doc;
-                const d = doc.data();
-                cardMap[doc.id] = d.name;
-                
-                let row = document.getElementById(`dir-row-${doc.id}`);
+        // Helper: Card Map Management
+        function getCardName(uid, fallback) {
+            return cardMap[uid] || fallback || "Khách lạ";
+        }
 
-                if (change.type === "added" || (change.type === "modified" && !snaps.metadata.hasPendingWrites)) {
-                    if (!row) {
-                        row = document.createElement('tr');
-                        row.id = `dir-row-${doc.id}`;
-                        directoryTableBody.appendChild(row);
-                    }
-                    row.className = "hover:bg-white/[0.02]";
-                    row.innerHTML = `
-                        <td class="px-6 py-4 font-mono text-xs text-blue-400">${doc.id}</td>
-                        <td class="px-6 py-4">
-                            <input type="text" value="${d.name}" onchange="saveName('${doc.id}', this.value)" 
-                                   class="bg-white/5 border border-white/10 rounded px-3 py-1 text-sm focus:border-blue-500 outline-none w-full transition-all">
-                        </td>
-                        <td class="px-6 py-4 text-xs text-slate-500">${d.updatedAt || '---'}</td>
-                    `;
-                } else if (change.type === "removed" && row) {
-                    row.remove();
-                }
+        // 1. Directory Listener (Populate cardMap FIRST)
+        db.collection("directory").onSnapshot(snaps => {
+            snaps.forEach(doc => { cardMap[doc.id] = doc.data().name; });
+            
+            // Re-render only directory table
+            directoryTableBody.innerHTML = '';
+            snaps.forEach(doc => {
+                const d = doc.data();
+                const row = document.createElement('tr');
+                row.className = "hover:bg-white/[0.02]";
+                row.innerHTML = `
+                    <td class="px-6 py-4 font-mono text-xs text-blue-400">${doc.id}</td>
+                    <td class="px-6 py-4">
+                        <input type="text" value="${d.name}" onchange="saveName('${doc.id}', this.value)" 
+                               class="bg-white/5 border border-white/10 rounded px-3 py-1 text-sm focus:border-blue-500 outline-none w-full transition-all">
+                    </td>
+                    <td class="px-6 py-4 text-xs text-slate-500">${d.updatedAt || '---'}</td>
+                `;
+                directoryTableBody.appendChild(row);
             });
         });
 
@@ -311,34 +308,52 @@
             return item.timestamp;
         }
 
-        // Logs Management (With Auto-Registration)
+        // 2. Logs Listener (Main Data Loop)
         db.collection("logs").onSnapshot(snaps => {
-            const items = [];
-            snaps.forEach(doc => { 
-                const data = doc.data();
-                if(data.uid) {
-                    items.push({ id: doc.id, ...data });
-                    
-                    // Tu dong them vao Danh ba neu chua co
-                    if (data.uid !== "WEB_OPEN" && !cardMap[data.uid]) {
-                        db.collection("directory").doc(data.uid).set({ 
-                            name: "Thẻ mới", 
-                            updatedAt: new Date().toLocaleString('vi-VN') 
-                        }, { merge: true });
+            try {
+                const items = [];
+                snaps.forEach(doc => { 
+                    const data = doc.data();
+                    if(data.uid) {
+                        items.push({ id: doc.id, ...data });
+                        // Tu dong dang ky the moi neu chua co
+                        if (data.uid !== "WEB_OPEN" && data.uid !== "REMOTE_ADMIN" && !cardMap[data.uid]) {
+                            db.collection("directory").doc(data.uid).set({ 
+                                name: "Thẻ mới", 
+                                updatedAt: new Date().toLocaleString('vi-VN') 
+                            }, { merge: true });
+                        }
                     }
-                }
-            });
-            items.sort((a,b) => b.id.localeCompare(a.id));
-            
-            renderDashboard(items);
-            renderHistory(items);
-            statCount.innerText = items.length;
+                });
+                
+                // Sort newest first
+                items.sort((a,b) => b.id.localeCompare(a.id));
+                
+                // Update UI Components
+                renderDashboard(items);
+                renderHistory(items);
+                renderNotifications(items);
+                
+                statCount.innerText = items.length;
+            } catch (err) { console.error("Logs error:", err); }
         });
+
+        function renderNotifications(items) {
+            // Filter to remove system messages from notif panel
+            const logs = items.filter(i => i.uid !== "WEB_OPEN" && i.uid !== "REMOTE_ADMIN").slice(0, 5);
+            
+            if (logs.length > 0) {
+                notifPanel.innerHTML = ''; // Clear placeholder only if we have data
+                // We show newest at top, but showPulseNotification prepends. 
+                // So we loop in reverse (oldest of the top 5 first) to prepend newest last.
+                logs.reverse().forEach(item => showPulseNotification(item));
+            }
+        }
 
         function renderDashboard(items) {
             logTable.innerHTML = '';
             items.slice(0, 10).forEach(item => {
-                const name = cardMap[item.uid] || item.name || "Khách lạ";
+                const name = getCardName(item.uid, item.name);
                 const row = document.createElement('tr');
                 row.className = "hover:bg-white/[0.02]";
                 row.innerHTML = `
@@ -355,7 +370,7 @@
         function renderHistory(items) {
             historyTableBody.innerHTML = '';
             items.forEach(item => {
-                const name = cardMap[item.uid] || item.name || "Khách lạ";
+                const name = getCardName(item.uid, item.name);
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td class="px-6 py-4 font-medium text-sm">${name}</td>
@@ -374,10 +389,26 @@
 
         function showPulseNotification(item) {
             const name = cardMap[item.uid] || item.name || "Người lạ";
-            const timeStr = item.timestamp || new Date().toLocaleString('vi-VN');
+            const timeStr = formatTime(item);
+            
+            // Xoa tin nhan "Dang doi the..." neu co
+            const waitingMsg = notifPanel.querySelector('.text-slate-500.italic');
+            if (waitingMsg) waitingMsg.remove();
+
             const d = document.createElement('div');
-            d.className = "bg-blue-600/10 border border-blue-500/20 p-3 rounded-2xl flex items-center space-x-3 animate-bounce";
-            d.innerHTML = `<div class="w-2 h-2 rounded-full bg-blue-500"></div><div class="flex-1"><p class="text-xs font-bold">${name} vừa quẹt thẻ!</p><p class="text-[10px] text-slate-500">${timeStr}</p></div>`;
+            d.className = "group bg-white/5 border border-white/10 p-3 rounded-2xl flex items-center space-x-3 transition-all hover:bg-white/10 animate-in fade-in slide-in-from-right-4 duration-500 mb-3";
+            d.innerHTML = `
+                <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
+                    <i data-lucide="user-check" class="w-5 h-5"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-bold truncate">${name}</p>
+                    <p class="text-[10px] text-slate-400 flex items-center gap-1">
+                        <i data-lucide="clock" class="w-3 h-3"></i> ${timeStr}
+                    </p>
+                </div>
+                <div class="px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-500 text-[10px] font-bold">LIVE</div>
+            `;
             notifPanel.prepend(d);
             if(notifPanel.children.length > 5) notifPanel.lastElementChild.remove();
             
