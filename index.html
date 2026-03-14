@@ -385,7 +385,30 @@
             lucide.createIcons();
         }
 
-        async function deleteLog(id) { if(confirm("Bạn muốn xóa bản ghi này?")) await db.collection("logs").doc(id).delete(); }
+        async function deleteLog(id) { 
+            if(confirm("Bạn muốn xóa bản ghi này?")) {
+                try {
+                    await db.collection("logs").doc(id).delete();
+                } catch(err) { console.error("Lỗi xóa log:", err); }
+            }
+        }
+
+        async function clearAllLogs() {
+            if(confirm("BẠN CÓ CHẮC MUỐN XÓA TOÀN BỘ LỊCH SỬ? \nHành động này không thể hoàn tác!")) {
+                const snaps = await db.collection("logs").get();
+                const batch = db.batch();
+                let count = 0;
+                snaps.forEach(doc => {
+                    batch.delete(doc.ref);
+                    count++;
+                });
+                
+                if (count > 0) {
+                    await batch.commit();
+                    alert(`Đã xóa sạch ${count} bản ghi.`);
+                }
+            }
+        }
 
         function showPulseNotification(item) {
             const name = cardMap[item.uid] || item.name || "Người lạ";
