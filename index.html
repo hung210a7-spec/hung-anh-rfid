@@ -310,6 +310,11 @@
 
         // 2. Logs Listener (Main Data Loop)
         db.collection("logs").onSnapshot(snaps => {
+            // Cap nhat trang thai ngay khi co du lieu tu Cloud
+            if (sysStatus.innerText === "Đang kết nối...") {
+                sysStatus.innerText = "Cơ sở dữ liệu (Cloud)";
+            }
+            
             try {
                 const items = [];
                 snaps.forEach(doc => { 
