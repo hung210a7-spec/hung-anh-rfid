@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hùng Anh TimeAttend - Premium Dashboard</title>
+    
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase Compat SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #070b14;
+            --sidebar-dark: #0b1120;
+            --card-glass: rgba(15, 23, 42, 0.7);
+            --accent-blue: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.5);
+        }
+        body { background: var(--bg-dark); color: #f1f5f9; font-family: 'Outfit', sans-serif; }
+        .glass-card { background: var(--card-glass); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .sidebar { background: var(--sidebar-dark); border-right: 1px solid rgba(255, 255, 255, 0.05); }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); }
+        .nav-active { background: var(--accent-blue); color: white; box-shadow: 0 0 20px var(--accent-glow); }
+        .pulse-emerald { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="sidebar w-64 flex-shrink-0 flex flex-col">
+        <div class="p-6 flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+                <i data-lucide="shield-check" class="text-white w-6 h-6"></i>
+            </div>
+            <span class="text-xl font-bold tracking-tight">TimeAttend</span>
+        </div>
+        
+        <nav class="flex-1 px-4 py-4 space-y-2">
+            <a href="#" id="nav-dashboard" class="nav-active flex items-center space-x-3 p-3 rounded-xl transition-all">
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                <span class="font-medium">Tổng quan</span>
+            </a>
+            <a href="#" id="nav-history" class="nav-link flex items-center space-x-3 p-3 rounded-xl text-slate-400 transition-all">
+                <i data-lucide="history" class="w-5 h-5"></i>
+                <span class="font-medium">Quản lý Lịch sử</span>
+            </a>
+            <a href="#" id="nav-directory" class="nav-link flex items-center space-x-3 p-3 rounded-xl text-slate-400 transition-all">
+                <i data-lucide="users" class="w-5 h-5"></i>
+                <span class="font-medium">Danh bạ Thẻ</span>
+            </a>
+        </nav>
+        
+        <div class="p-6 border-t border-white/5">
+            <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-4">Hệ thống</p>
+            <div class="flex items-center space-x-3 text-sm text-slate-400">
+                <div class="w-2 h-2 rounded-full bg-emerald-500 pulse-emerald"></div>
+                <span id="sys-status">Đang kết nối...</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto custom-scroll relative bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')]">
+        
+        <!-- Top Nav -->
+        <header class="sticky top-0 z-10 px-8 py-6 flex justify-between items-center backdrop-blur-md bg-transparent border-b border-white/5">
+            <div>
+                <h2 class="text-2xl font-bold">Smart Access Pro</h2>
+                <p class="text-slate-400 text-sm" id="live-date">Đang tải thời gian...</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="text-right">
+                    <p class="text-sm font-bold">Hùng Anh</p>
+                    <p class="text-[10px] text-blue-400 uppercase font-bold tracking-widest">Administrator</p>
+                </div>
+                <img src="https://ui-avatars.com/api/?name=Hung+Anh&background=3b82f6&color=fff" class="w-10 h-10 rounded-xl border-2 border-white/10" alt="Avatar">
+            </div>
+        </header>
+
+        <!-- SECION: DASHBOARD -->
+        <div id="section-dashboard" class="p-8 space-y-8">
+            <div class="grid grid-cols-3 gap-6">
+                <!-- Stat 1 -->
+                <div class="glass-card p-6 rounded-3xl relative overflow-hidden">
+                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-blue-600/10 rounded-full blur-2xl"></div>
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Lượt quẹt hôm nay</p>
+                    <h3 id="stat-count" class="text-3xl font-bold">0</h3>
+                </div>
+                <!-- Stat 2 -->
+                <div class="glass-card p-6 rounded-3xl relative overflow-hidden">
+                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-purple-600/10 rounded-full blur-2xl"></div>
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Mới nhất</p>
+                    <h3 id="last-unlock" class="text-xl font-bold">--:--</h3>
+                    <p id="last-user" class="text-[10px] text-slate-500 mt-2 italic">Chưa phát hiện</p>
+                </div>
+                <!-- Action -->
+                <div class="glass-card p-6 rounded-3xl flex items-center justify-center">
+                    <button id="btn-remote-open" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold flex items-center justify-center space-x-3 shadow-xl shadow-blue-500/20 transition-all active:scale-95">
+                        <i data-lucide="lock-open" class="w-5 h-5"></i>
+                        <span>Mở cửa từ xa</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-8">
+                <div class="col-span-2 glass-card rounded-3xl overflow-hidden">
+                    <div class="p-6 border-b border-white/5">
+                        <h4 class="font-bold flex items-center space-x-2">
+                            <i data-lucide="clock" class="w-5 h-5 text-blue-500"></i>
+                            <span>Hoạt động gần đây</span>
+                        </h4>
+                    </div>
+                    <table class="w-full text-left">
+                        <thead class="text-[10px] text-slate-500 uppercase tracking-widest border-b border-white/5">
+                            <tr>
+                                <th class="px-6 py-4">Thành viên</th>
+                                <th class="px-6 py-4">Thời gian</th>
+                                <th class="px-6 py-4">UID</th>
+                                <th class="px-6 py-4">Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody id="log-table" class="divide-y divide-white/5"></tbody>
+                    </table>
+                </div>
+
+                <div class="glass-card p-6 rounded-3xl">
+                    <h4 class="font-bold mb-6 flex items-center space-x-2">
+                        <i data-lucide="megaphone" class="w-5 h-5 text-purple-500"></i>
+                        <span>Thông báo Tức thì</span>
+                    </h4>
+                    <div id="notif-panel" class="space-y-4">
+                        <div class="text-center py-10 text-slate-500 italic text-sm">Đang đợi thẻ...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION: HISTORY -->
+        <div id="section-history" class="p-8 hidden">
+            <div class="glass-card rounded-3xl overflow-hidden">
+                <div class="p-6 border-b border-white/5 flex justify-between items-center">
+                    <h4 class="font-bold flex items-center space-x-2">
+                        <i data-lucide="list-checks" class="w-5 h-5 text-blue-500"></i>
+                        <span>Quản lý Toàn bộ Lịch sử</span>
+                    </h4>
+                    <button onclick="clearAllLogs()" class="text-xs text-rose-500 font-bold hover:underline">Xóa tất cả</button>
+                </div>
+                <div class="max-h-[600px] overflow-y-auto custom-scroll">
+                    <table class="w-full text-left">
+                        <thead class="text-[10px] text-slate-500 uppercase tracking-widest border-b border-white/5 sticky top-0 bg-[#0b1120] z-10">
+                            <tr>
+                                <th class="px-6 py-4">Tên hiển thị</th>
+                                <th class="px-6 py-4">Thời gian</th>
+                                <th class="px-6 py-4">Mã UID</th>
+                                <th class="px-6 py-4 text-right">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" class="divide-y divide-white/5"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION: DIRECTORY -->
+        <div id="section-directory" class="p-8 hidden">
+            <div class="glass-card rounded-3xl overflow-hidden">
+                <div class="p-6 border-b border-white/5">
+                    <h4 class="font-bold flex items-center space-x-2">
+                        <i data-lucide="book-user" class="w-5 h-5 text-blue-500"></i>
+                        <span>Danh bạ Thẻ (Đổi tên thẻ)</span>
+                    </h4>
+                    <p class="text-xs text-slate-400 mt-2 italic">* Chỉ cần nhập tên mới và ấn ra ngoài để lưu tự động.</p>
+                </div>
+                <table class="w-full text-left">
+                    <thead class="text-[10px] text-slate-500 uppercase tracking-widest border-b border-white/5">
+                        <tr>
+                            <th class="px-6 py-4">Mã UID</th>
+                            <th class="px-6 py-4">Đặt tên gợi nhớ</th>
+                            <th class="px-6 py-4">Ngày cập nhật</th>
+                        </tr>
+                    </thead>
+                    <tbody id="directory-table-body" class="divide-y divide-white/5"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const config = {
+            apiKey: "AIzaSyCcilHfKhYd71-jDCN5kYNPT3CjsV5d5iA",
+            authDomain: "rfid-3d656.firebaseapp.com",
+            projectId: "rfid-3d656",
+            storageBucket: "rfid-3d656.firebasestorage.app",
+            messagingSenderId: "365423550976",
+            appId: "1:365423550976:web:7073d98a79dc4473f92ee5"
+        };
+        firebase.initializeApp(config);
+        const db = firebase.firestore();
+
+        // UI Elements
+        const logTable = document.getElementById('log-table');
+        const notifPanel = document.getElementById('notif-panel');
+        const sysStatus = document.getElementById('sys-status');
+        const statCount = document.getElementById('stat-count');
+        const lastUnlock = document.getElementById('last-unlock');
+        const lastUser = document.getElementById('last-user');
+        const historyTableBody = document.getElementById('history-table-body');
+        const directoryTableBody = document.getElementById('directory-table-body');
+
+        let ws = null;
+        let cardMap = {};
+
+        // view management
+        const navItems = {
+            'nav-dashboard': document.getElementById('section-dashboard'),
+            'nav-history': document.getElementById('section-history'),
+            'nav-directory': document.getElementById('section-directory')
+        };
+
+        Object.keys(navItems).forEach(id => {
+            document.getElementById(id).onclick = function() {
+                Object.values(navItems).forEach(s => s.classList.add('hidden'));
+                document.querySelectorAll('nav a').forEach(a => a.classList.remove('nav-active', 'text-white'));
+                document.querySelectorAll('nav a').forEach(a => a.classList.add('text-slate-400'));
+                
+                this.classList.remove('text-slate-400');
+                this.classList.add('nav-active', 'text-white');
+                navItems[id].classList.remove('hidden');
+            }
+        });
+
+        // WebSocket Link
+        db.collection("system").doc("status").onSnapshot(doc => {
+            if (doc.exists && doc.data().ip) initWebSocket(doc.data().ip);
+        });
+
+        function initWebSocket(ip) {
+            if (ws && ws.readyState === WebSocket.OPEN) return;
+            ws = new WebSocket(`ws://${ip}:81`);
+            ws.onopen = () => { sysStatus.innerText = "Trực tiếp (WiFi)"; };
+            ws.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                showPulseNotification(data);
+            };
+            ws.onclose = () => { sysStatus.innerText = "Cơ sở dữ liệu (Cloud)"; setTimeout(() => initWebSocket(ip), 5000); };
+        }
+
+        // Directory Management (Stable Row Rendering)
+        db.collection("directory").onSnapshot(snaps => {
+            snaps.docChanges().forEach(change => {
+                const doc = change.doc;
+                const d = doc.data();
+                cardMap[doc.id] = d.name;
+                
+                let row = document.getElementById(`dir-row-${doc.id}`);
+
+                if (change.type === "added" || (change.type === "modified" && !snaps.metadata.hasPendingWrites)) {
+                    if (!row) {
+                        row = document.createElement('tr');
+                        row.id = `dir-row-${doc.id}`;
+                        directoryTableBody.appendChild(row);
+                    }
+                    row.className = "hover:bg-white/[0.02]";
+                    row.innerHTML = `
+                        <td class="px-6 py-4 font-mono text-xs text-blue-400">${doc.id}</td>
+                        <td class="px-6 py-4">
+                            <input type="text" value="${d.name}" onchange="saveName('${doc.id}', this.value)" 
+                                   class="bg-white/5 border border-white/10 rounded px-3 py-1 text-sm focus:border-blue-500 outline-none w-full transition-all">
+                        </td>
+                        <td class="px-6 py-4 text-xs text-slate-500">${d.updatedAt || '---'}</td>
+                    `;
+                } else if (change.type === "removed" && row) {
+                    row.remove();
+                }
+            });
+        });
+
+        async function saveName(uid, name) {
+            await db.collection("directory").doc(uid).set({ 
+                name, 
+                updatedAt: new Date().toLocaleDateString('vi-VN') + " " + new Date().toLocaleTimeString('vi-VN') 
+            }, { merge: true });
+        }
+
+        // Helper: Dinh dang thoi gian thong minh (Ngay + Gio)
+        function formatTime(item) {
+            if (!item.timestamp || item.timestamp === "Updated") {
+                if (item.id && item.id.includes('_')) {
+                    const unix = parseInt(item.id.split('_')[1]);
+                    if (!isNaN(unix)) {
+                        return new Date(unix * 1000).toLocaleString('vi-VN');
+                    }
+                }
+                return "---";
+            }
+            return item.timestamp;
+        }
+
+        // Logs Management (With Auto-Registration)
+        db.collection("logs").onSnapshot(snaps => {
+            const items = [];
+            snaps.forEach(doc => { 
+                const data = doc.data();
+                if(data.uid) {
+                    items.push({ id: doc.id, ...data });
+                    
+                    // Tu dong them vao Danh ba neu chua co
+                    if (data.uid !== "WEB_OPEN" && !cardMap[data.uid]) {
+                        db.collection("directory").doc(data.uid).set({ 
+                            name: "Thẻ mới", 
+                            updatedAt: new Date().toLocaleString('vi-VN') 
+                        }, { merge: true });
+                    }
+                }
+            });
+            items.sort((a,b) => b.id.localeCompare(a.id));
+            
+            renderDashboard(items);
+            renderHistory(items);
+            statCount.innerText = items.length;
+        });
+
+        function renderDashboard(items) {
+            logTable.innerHTML = '';
+            items.slice(0, 10).forEach(item => {
+                const name = cardMap[item.uid] || item.name || "Khách lạ";
+                const row = document.createElement('tr');
+                row.className = "hover:bg-white/[0.02]";
+                row.innerHTML = `
+                    <td class="px-6 py-4 font-bold text-sm">${name}</td>
+                    <td class="px-6 py-4 text-xs text-slate-400">${formatTime(item)}</td>
+                    <td class="px-6 py-4 font-mono text-[10px] text-blue-500">${item.uid}</td>
+                    <td class="px-6 py-4"><span class="bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded text-[10px] font-bold">SUCCESS</span></td>
+                `;
+                logTable.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        function renderHistory(items) {
+            historyTableBody.innerHTML = '';
+            items.forEach(item => {
+                const name = cardMap[item.uid] || item.name || "Khách lạ";
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 font-medium text-sm">${name}</td>
+                    <td class="px-6 py-4 text-xs text-slate-400">${formatTime(item)}</td>
+                    <td class="px-6 py-4 font-mono text-xs text-slate-500">${item.uid}</td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="deleteLog('${item.id}')" class="text-rose-500 hover:bg-rose-500/10 p-2 rounded-lg transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </td>
+                `;
+                historyTableBody.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        async function deleteLog(id) { if(confirm("Bạn muốn xóa bản ghi này?")) await db.collection("logs").doc(id).delete(); }
+
+        function showPulseNotification(item) {
+            const name = cardMap[item.uid] || item.name || "Người lạ";
+            const timeStr = item.timestamp || new Date().toLocaleString('vi-VN');
+            const d = document.createElement('div');
+            d.className = "bg-blue-600/10 border border-blue-500/20 p-3 rounded-2xl flex items-center space-x-3 animate-bounce";
+            d.innerHTML = `<div class="w-2 h-2 rounded-full bg-blue-500"></div><div class="flex-1"><p class="text-xs font-bold">${name} vừa quẹt thẻ!</p><p class="text-[10px] text-slate-500">${timeStr}</p></div>`;
+            notifPanel.prepend(d);
+            if(notifPanel.children.length > 5) notifPanel.lastElementChild.remove();
+            
+            lastUnlock.innerText = timeStr;
+            lastUser.innerText = `Bởi ${name}`;
+            lucide.createIcons();
+        }
+
+        function updateClock() { document.getElementById('live-date').innerText = new Date().toLocaleString('vi-VN', { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric' }); }
+        setInterval(updateClock, 1000);
+
+        document.getElementById('btn-remote-open').onclick = async () => {
+            const btn = document.getElementById('btn-remote-open');
+            const originalHTML = btn.innerHTML;
+            
+            // 1. WebSocket (Local) - Neu dang ket noi WiFi cung mang
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: "control", cmd: "OPEN" }));
+            }
+
+            // 2. Cloud (Firestore) - Quyet dinh su "Zero-Touch" tu xa
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i><span>Dang gui len Cloud...</span>`;
+            lucide.createIcons();
+            
+            try {
+                await db.collection("system").doc("control").set({ 
+                    cmd: "OPEN", 
+                    ts: Date.now() / 1000 // UNIX timestamp cho ESP32 dễ so sánh
+                });
+                
+                // Ghi log vao lich su
+                await db.collection("logs").add({ 
+                    uid: "REMOTE_ADMIN", 
+                    timestamp: new Date().toLocaleString('vi-VN'),
+                    name: "Hùng Anh (Cloud)"
+                });
+
+                btn.classList.replace('bg-blue-600', 'bg-emerald-600');
+                btn.innerHTML = `<i data-lucide="check" class="w-5 h-5"></i><span>DA GUI THANH CONG!</span>`;
+                lucide.createIcons();
+                
+                setTimeout(() => {
+                    btn.classList.replace('bg-emerald-600', 'bg-blue-600');
+                    btn.innerHTML = originalHTML;
+                    lucide.createIcons();
+                }, 3000);
+
+            } catch (err) {
+                alert("Lỗi kết nối Cloud: " + err.message);
+                btn.innerHTML = originalHTML;
+                lucide.createIcons();
+            }
+        };
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then(reg => console.log('PWA Ready!', reg));
+            });
+        }
+    </script>
+</body>
+</html>
